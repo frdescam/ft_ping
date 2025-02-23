@@ -17,75 +17,85 @@
 
 int stop_loop;
 
-int getAddrFromArgs(int argc, char **argv, struct addrinfo **addr)
+struct sockaddr*
+getAddrFromIP (char *ip)
 {
-    struct addrinfo hints;
+    struct sockaddr_in* addr;
 
-    if (argc != 2)
-    {
-        printf("error arguments count\n");
-        exit(1);
-    }
+    addr = malloc(sizeof(struct sockaddr_in));
+    bzero(addr, sizeof(struct sockaddr_in));
+    addr->sin_family = AF_INET;
+    addr->sin_port = 0;
+
+    if (inet_pton(AF_INET, ip, &addr->sin_addr) == 1)
+        return ((struct sockaddr *)addr);
+    free(addr);
+    return (NULL);
+}
+
+struct sockaddr*
+getAddrFromFQDN(char *fqdn)
+{
+    struct addrinfo* addr_list;
+    struct sockaddr_in* output_addr;
+    struct addrinfo hints;
+    int status;
 
     bzero(&hints, sizeof(struct addrinfo));
     hints.ai_family = AF_INET;
     hints.ai_socktype = SOCK_DGRAM;
+    if ((status = getaddrinfo(fqdn, NULL, &hints, &addr_list)) != 0)
+        return (NULL);
 
-    if (getaddrinfo(argv[1], NULL, &hints, addr) != 0)
-    {
-        if (!(addr = malloc(sizeof(struct addrinfo))))
-        {
-            exit(1);
-        }
-        bzero(addr, sizeof(struct addrinfo));
-        (*addr)->ai_family = AF_INET;
-        if (inet_aton(argv[1], (struct in_addr *)&(*addr)->ai_addr) == 0)
-        {
-            printf("error: argument is not an ip nor a FQDN\n");
-            exit(1);
-        }
-        return (IS_IP);
-    }
-    return (IS_FQDN);
+    output_addr = malloc(sizeof(struct sockaddr_in));
+    memcpy(output_addr, addr_list->ai_addr, addr_list->ai_addrlen);
+    freeaddrinfo(addr_list);
+
+    return ((struct sockaddr *)output_addr);
 }
 
-void print_ping_reply_data(t_ping_reply_data data, int input_type)
+void
+print_ping_reply_data (t_ping_reply_data data, int input_type)
 {
     (void)input_type;
     printf("%d\n", data.val);
 }
 
-void sigint_handler(int signal)
+void
+sigint_handler (int signal)
 {
     (void)signal;
     stop_loop = 1;
 }
 
-int main(int argc, char **argv)
-{
-    int input_type;
+int
+main (int argc, char **argv)
+{   
     int socket_fd;
-    struct addrinfo *addr;
+    int input_type;
+    struct sockaddr* addr;
     t_ping_request_data ping_request_data;
     t_ping_reply_data ping_reply_data;
 
-    input_type = getAddrFromArgs(argc, argv, &addr);
+    if (argc != 2)
+        return (-1);
+
+    input_type = IS_IP;
+    addr = getAddrFromIP(argv[1]);
+
+    if (!addr)
+    {
+        input_type = IS_FQDN;
+        addr = getAddrFromFQDN(argv[1]);
+        if (!addr)
+            return (-1);
+    }
 
     if ((socket_fd = socket(AF_INET, SOCK_DGRAM, IPPROTO_ICMP)) == -1)
     {
         printf("error socket\n");
         exit(1);
     }
-
-    // char rspace[40];
-
-    // memset (rspace, 0, sizeof (rspace));
-    // rspace[0] = 7;
-    // rspace[1] = sizeof (rspace) - 1;
-    // rspace[2] = 4;
-
-    // setsockopt(socket_fd, IPPROTO_IP, 4, rspace, sizeof(rspace));
-
 
     printf("PING %s (%s): %d data bytes\n", "host", "ip", 42);
 
@@ -94,7 +104,7 @@ int main(int argc, char **argv)
     {
         signal(SIGINT, sigint_handler);
 
-        ping_request_data = send_ping(socket_fd, addr->ai_addr);
+        ping_request_data = send_ping(socket_fd, addr);
         (void)ping_request_data;
         // TODO : add to stats
 
@@ -107,6 +117,6 @@ int main(int argc, char **argv)
     printf("--- %s ping statistics ---\n", "host or ip");
     // TODO : print stats
 
-
+    free(addr);
     close(socket_fd);
 }

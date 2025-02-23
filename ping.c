@@ -20,7 +20,8 @@ typedef struct s_icmp_packet
     int32_t padding2;
 } t_icmp_packet;
 
-t_ping_request_data send_ping(int socket_fd, struct sockaddr *addr)
+t_ping_request_data
+send_ping (int socket_fd, struct sockaddr *addr)
 {
     t_icmp_packet icmp_packet;
     t_ping_request_data output;
@@ -39,7 +40,8 @@ t_ping_request_data send_ping(int socket_fd, struct sockaddr *addr)
     return (output);
 }
 
-t_ping_reply_data recieve_ping_reply(int socket_fd)
+t_ping_reply_data
+recieve_ping_reply (int socket_fd)
 {
     t_icmp_packet response_packet;
     t_ping_reply_data output;
