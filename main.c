@@ -15,6 +15,15 @@
 #define IS_IP 0
 #define IS_FQDN 1
 
+typedef struct s_global_data
+{
+    char* fqdn;
+    char target_ip_str[INET_ADDRSTRLEN];
+    int socket_fd;
+    int input_type;
+    struct sockaddr* addr;
+} t_global_data;
+
 int stop_loop;
 
 struct sockaddr*
@@ -57,66 +66,74 @@ getAddrFromFQDN(char *fqdn)
 void
 print_ping_reply_data (t_ping_reply_data data, int input_type)
 {
+    char src_address_str[INET_ADDRSTRLEN];
+
     (void)input_type;
-    printf("%d\n", data.val);
+    inet_ntop(AF_INET, &data.srcAddress, src_address_str, sizeof(src_address_str));
+    printf("%d bytes from %s: icmp_seq=%d ttl=%d time=%f ms\n", 42, src_address_str, data.seq_num, data.ttl, 0.0);
 }
 
 void
-sigint_handler (int signal)
+sigint_handler (__attribute__((unused)) int signal)
 {
-    (void)signal;
     stop_loop = 1;
 }
 
 int
 main (int argc, char **argv)
 {   
-    int socket_fd;
-    int input_type;
-    struct sockaddr* addr;
+    t_global_data global_data;
+    int enable;
+    int seq_num;
     t_ping_request_data ping_request_data;
     t_ping_reply_data ping_reply_data;
 
     if (argc != 2)
         return (-1);
 
-    input_type = IS_IP;
-    addr = getAddrFromIP(argv[1]);
+    global_data.input_type = IS_IP;
+    global_data.addr = getAddrFromIP(argv[1]);
 
-    if (!addr)
+    if (!global_data.addr)
     {
-        input_type = IS_FQDN;
-        addr = getAddrFromFQDN(argv[1]);
-        if (!addr)
+        global_data.input_type = IS_FQDN;
+        global_data.addr = getAddrFromFQDN(argv[1]);
+        if (!global_data.addr)
             return (-1);
     }
+    inet_ntop(AF_INET, &((struct sockaddr_in*)global_data.addr)->sin_addr, global_data.target_ip_str, sizeof(global_data.target_ip_str));
+    global_data.fqdn = argv[1];
 
-    if ((socket_fd = socket(AF_INET, SOCK_DGRAM, IPPROTO_ICMP)) == -1)
+    if ((global_data.socket_fd = socket(AF_INET, SOCK_DGRAM, IPPROTO_ICMP)) == -1)
     {
         printf("error socket\n");
         exit(1);
     }
 
-    printf("PING %s (%s): %d data bytes\n", "host", "ip", 42);
+    enable = 1;
+    setsockopt(global_data.socket_fd, IPPROTO_IP, IP_RECVTTL, &enable, sizeof(enable));
 
+    printf("PING %s (%s): %d data bytes\n", global_data.fqdn, global_data.target_ip_str, 42);
+
+    signal(SIGINT, sigint_handler);
     stop_loop = 0;
+    seq_num = 0;
     while (!stop_loop)
     {
-        signal(SIGINT, sigint_handler);
-
-        ping_request_data = send_ping(socket_fd, addr);
+        ping_request_data = send_ping(global_data.socket_fd, global_data.addr, seq_num);
         (void)ping_request_data;
         // TODO : add to stats
 
-        ping_reply_data = recieve_ping_reply(socket_fd);
-        print_ping_reply_data(ping_reply_data, input_type);
+        ping_reply_data = recieve_ping_reply(global_data.socket_fd);
+        print_ping_reply_data(ping_reply_data, global_data.input_type);
 
+        seq_num++;
         sleep(1);
     }
 
     printf("--- %s ping statistics ---\n", "host or ip");
     // TODO : print stats
 
-    free(addr);
-    close(socket_fd);
+    free(global_data.addr);
+    close(global_data.socket_fd);
 }

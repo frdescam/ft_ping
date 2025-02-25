@@ -9,6 +9,8 @@
 
 #include "ping.h"
 
+#define PACKET_SIZE 1500
+
 typedef struct s_icmp_packet
 {
     int8_t type;
@@ -21,7 +23,7 @@ typedef struct s_icmp_packet
 } t_icmp_packet;
 
 t_ping_request_data
-send_ping (int socket_fd, struct sockaddr *addr)
+send_ping (int socket_fd, struct sockaddr* addr, int icmp_seq)
 {
     t_icmp_packet icmp_packet;
     t_ping_request_data output;
@@ -29,6 +31,7 @@ send_ping (int socket_fd, struct sockaddr *addr)
     bzero(&icmp_packet, sizeof(icmp_packet));
     icmp_packet.type = 8;
     icmp_packet.identifier = 42;
+    icmp_packet.seq_num = htobe16(icmp_seq);
 
     if(sendto(socket_fd, &icmp_packet, sizeof(icmp_packet), 0, addr, sizeof(struct sockaddr_in)) == -1)
     {
@@ -43,14 +46,47 @@ send_ping (int socket_fd, struct sockaddr *addr)
 t_ping_reply_data
 recieve_ping_reply (int socket_fd)
 {
-    t_icmp_packet response_packet;
     t_ping_reply_data output;
 
-    bzero(&response_packet, sizeof(response_packet));
+    struct msghdr header;
+    uint8_t buffer[PACKET_SIZE];
+    struct iovec iov;
+    struct sockaddr srcAddress;
+    uint8_t ctrlDataBuffer[CMSG_SPACE(sizeof(uint8_t))];
 
-    recv(socket_fd, &response_packet, sizeof(response_packet), 0);
+    struct cmsghdr* cmsg;
+    int ttl;
 
-    output.val = response_packet.checksum;
+    iov.iov_base = buffer;
+    iov.iov_len = PACKET_SIZE;
+
+    bzero(ctrlDataBuffer, sizeof(ctrlDataBuffer));
+
+    bzero(&header, sizeof(struct msghdr));
+    header.msg_name = &srcAddress;
+    header.msg_namelen = sizeof(srcAddress);
+    header.msg_iov = &iov;
+    header.msg_iovlen = 1;
+    header.msg_control = ctrlDataBuffer;
+    header.msg_controllen = sizeof(ctrlDataBuffer);
+
+    recvmsg(socket_fd, &header, 0);
+
+    ttl = -1;
+    cmsg = CMSG_FIRSTHDR(&header);
+    while (cmsg)
+    {
+        if (cmsg->cmsg_level == IPPROTO_IP
+            && cmsg->cmsg_type == IP_TTL)
+        {
+            memcpy(&ttl, CMSG_DATA(cmsg), sizeof(ttl));
+        }
+        cmsg = CMSG_NXTHDR(&header, cmsg);
+    }
+
+    output.ttl = ttl;
+    memcpy(&output.srcAddress, &((struct sockaddr_in*)header.msg_name)->sin_addr, sizeof(struct in_addr));
+    output.seq_num = be16toh(*(uint16_t*)&buffer[6]);
 
     return output;
 }
