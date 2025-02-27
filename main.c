@@ -70,7 +70,7 @@ print_ping_reply_data (t_ping_reply_data data, int input_type)
 
     (void)input_type;
     inet_ntop(AF_INET, &data.srcAddress, src_address_str, sizeof(src_address_str));
-    printf("%d bytes from %s: icmp_seq=%d ttl=%d time=%f ms\n", 42, src_address_str, data.seq_num, data.ttl, 0.0);
+    printf("%ld bytes from %s: icmp_seq=%d ttl=%d time=%f ms\n", data.reply_size, src_address_str, data.seq_num, data.ttl, 0.0);
 }
 
 void
@@ -113,7 +113,7 @@ main (int argc, char **argv)
     enable = 1;
     setsockopt(global_data.socket_fd, IPPROTO_IP, IP_RECVTTL, &enable, sizeof(enable));
 
-    printf("PING %s (%s): %d data bytes\n", global_data.fqdn, global_data.target_ip_str, 42);
+    printf("PING %s (%s): %d data bytes\n", global_data.fqdn, global_data.target_ip_str, 56);
 
     signal(SIGINT, sigint_handler);
     stop_loop = 0;
