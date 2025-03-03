@@ -10,18 +10,25 @@
 
 #include "ping.h"
 
-#define DATA_SIZE 48
-#define TIMESTAMP_SIZE 8
+#define DATA_SIZE 40
 #define PACKET_SIZE 1500
 
 typedef struct s_icmp_packet
 {
-    int8_t type;
-    int8_t code;
-    int16_t checksum;
-    int16_t identifier;
-    int16_t seq_num;
-    int8_t payload[DATA_SIZE];
+    // Header 8 bytes
+    uint8_t type;
+    uint8_t code;
+    uint16_t checksum;
+    uint16_t identifier;
+    uint16_t seq_num;
+    // Payload 56 bytes
+    //  Timestamp 8 bytes + 8 bytes padding ?
+    uint32_t timestamp_sec;
+    uint32_t padding1;
+    uint32_t timestamp_usec;
+    uint32_t padding2;
+    //  Actual payload 40 bytes
+    uint8_t payload[DATA_SIZE];
 } t_icmp_packet;
 
 t_ping_request_data
@@ -38,16 +45,16 @@ send_ping (int socket_fd, struct sockaddr* addr, int icmp_seq)
     struct timeval tv;
     gettimeofday(&tv, NULL);
 
-    uint32_t seconds = htonl(tv.tv_sec);
-    uint32_t microseconds = htonl(tv.tv_usec);
+    uint32_t seconds = (uint32_t)tv.tv_sec;
+    uint32_t microseconds = (uint32_t)tv.tv_usec;
 
-    memcpy(icmp_packet.payload, &seconds, 4);
-    memcpy(icmp_packet.payload + 4, &microseconds, 4);
+    icmp_packet.timestamp_sec = seconds;
+    icmp_packet.timestamp_usec = microseconds;
 
-    i = TIMESTAMP_SIZE;
+    i = 0;
     while (i < DATA_SIZE)
     {
-        icmp_packet.payload[i] = i - TIMESTAMP_SIZE;
+        icmp_packet.payload[i] = i;
         i++;
     }
 
@@ -106,6 +113,18 @@ recieve_ping_reply (int socket_fd)
     output.ttl = ttl;
     memcpy(&output.srcAddress, &((struct sockaddr_in*)header.msg_name)->sin_addr, sizeof(struct in_addr));
     output.seq_num = be16toh(*(uint16_t*)&buffer[6]);
+    // struct timeval tv_sent;
+    // tv_sent.tv_sec = ntohl(*(uint32_t*)(buffer + 8));
+    // tv_sent.tv_sec = ntohl(*(uint32_t*)(buffer + 8));
+    // struct timeval tv;
+    // gettimeofday(&tv, NULL);
+    // int nsec = (tv.tv_usec - tv_sent.tv_usec) / 1000000 + 1;
+    // tv.tv_usec -= 1000000 * nsec;
+    // tv.tv_sec += nsec;
+    // struct timeval tv_diff;
+    // tv_diff.tv_sec = tv.tv_sec - tv_sent.tv_sec;
+    // tv_diff.tv_usec = tv.tv_usec - tv_sent.tv_usec;
+    // output.time = (float)tv_diff.tv_sec + (float)tv_diff.tv_usec / 100;
     output.reply_size = reply_size;
 
     return output;
