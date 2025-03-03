@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <strings.h>
 #include <signal.h>
 
 #include <sys/socket.h>
@@ -74,7 +75,7 @@ print_ping_reply_data (t_ping_reply_data data, int input_type)
 }
 
 void
-sigint_handler (__attribute__((unused)) int signal)
+sigint_handler ()
 {
     stop_loop = 1;
 }

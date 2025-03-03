@@ -12,7 +12,7 @@ OBJS		= ${SRCS:.c=.o}
 CC			= cc
 RM			= rm -f
 
-CFLAGS		= -Wall -Wextra -Werror -g3
+CFLAGS		= -Wall -Wextra -Werror -g3 -std=gnu99
 
 all:	${NAME}
 
