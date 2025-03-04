@@ -4,6 +4,8 @@
 #include <string.h>
 #include <strings.h>
 #include <signal.h>
+#include <locale.h>
+
 
 #include <sys/socket.h>
 #include <sys/types.h>
@@ -12,6 +14,8 @@
 #include <netdb.h>
 
 #include "ping.h"
+
+#define ICMP_SENT_PACKET_SIZE 56
 
 #define IS_IP 0
 #define IS_FQDN 1
@@ -71,7 +75,7 @@ print_ping_reply_data (t_ping_reply_data data, int input_type)
 
     (void)input_type;
     inet_ntop(AF_INET, &data.srcAddress, src_address_str, sizeof(src_address_str));
-    printf("%ld bytes from %s: icmp_seq=%d ttl=%d time=%f ms\n", data.reply_size, src_address_str, data.seq_num, data.ttl, 0.0);
+    printf("%ld bytes from %s: icmp_seq=%d ttl=%d time=%.3f ms\n", data.reply_size, src_address_str, data.seq_num, data.ttl, data.round_trip_time);
 }
 
 void
@@ -91,6 +95,9 @@ main (int argc, char **argv)
 
     if (argc != 2)
         return (-1);
+
+    setlocale(LC_ALL, "");
+
 
     global_data.input_type = IS_IP;
     global_data.addr = getAddrFromIP(argv[1]);
@@ -114,7 +121,7 @@ main (int argc, char **argv)
     enable = 1;
     setsockopt(global_data.socket_fd, IPPROTO_IP, IP_RECVTTL, &enable, sizeof(enable));
 
-    printf("PING %s (%s): %d data bytes\n", global_data.fqdn, global_data.target_ip_str, 56);
+    printf("PING %s (%s): %d data bytes\n", global_data.fqdn, global_data.target_ip_str, ICMP_SENT_PACKET_SIZE);
 
     signal(SIGINT, sigint_handler);
     stop_loop = 0;

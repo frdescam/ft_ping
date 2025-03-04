@@ -9,6 +9,7 @@ typedef struct s_ping_reply_data
     struct sockaddr srcAddress;
     uint16_t seq_num;
     ssize_t reply_size;
+    double round_trip_time;
 }   t_ping_reply_data;
 
 typedef struct s_ping_request_data

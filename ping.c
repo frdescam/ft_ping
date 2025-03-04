@@ -35,21 +35,13 @@ t_ping_request_data
 send_ping (int socket_fd, struct sockaddr* addr, int icmp_seq)
 {
     t_icmp_packet icmp_packet;
-    t_ping_request_data output;
+    t_ping_request_data output = {0};
+    struct timeval tv_send;
     int i;
 
     bzero(&icmp_packet, sizeof(icmp_packet));
     icmp_packet.type = 8;
     icmp_packet.seq_num = htobe16(icmp_seq);
-
-    struct timeval tv;
-    gettimeofday(&tv, NULL);
-
-    uint32_t seconds = (uint32_t)tv.tv_sec;
-    uint32_t microseconds = (uint32_t)tv.tv_usec;
-
-    icmp_packet.timestamp_sec = seconds;
-    icmp_packet.timestamp_usec = microseconds;
 
     i = 0;
     while (i < DATA_SIZE)
@@ -58,12 +50,28 @@ send_ping (int socket_fd, struct sockaddr* addr, int icmp_seq)
         i++;
     }
 
+    gettimeofday(&tv_send, NULL);
+
+    icmp_packet.timestamp_sec = (uint32_t)tv_send.tv_sec;
+    icmp_packet.timestamp_usec = (uint32_t)tv_send.tv_usec;
+
     if(sendto(socket_fd, &icmp_packet, sizeof(icmp_packet), 0, addr, sizeof(struct sockaddr_in)) == -1)
     {
         printf("error send %d: %s\n", errno, strerror(errno));
     }
 
-    output.data_size = sizeof(icmp_packet);
+    return (output);
+}
+
+double
+compute_round_trip_time (struct timeval* tv_send, struct timeval* tv_recv)
+{
+    struct timeval round_trip_time;
+    double output;
+
+    timersub(tv_send, tv_recv, &round_trip_time);
+
+    output = (double)round_trip_time.tv_sec * 1000 + (double)round_trip_time.tv_usec / 1000;
 
     return (output);
 }
@@ -82,6 +90,8 @@ recieve_ping_reply (int socket_fd)
     struct cmsghdr* cmsg;
     int ttl;
     ssize_t reply_size;
+    struct timeval tv_recv;
+    struct timeval tv_send;
 
     iov.iov_base = buffer;
     iov.iov_len = PACKET_SIZE;
@@ -97,7 +107,7 @@ recieve_ping_reply (int socket_fd)
     header.msg_controllen = sizeof(ctrlDataBuffer);
 
     reply_size = recvmsg(socket_fd, &header, 0);
-
+    gettimeofday(&tv_recv, NULL);
     ttl = -1;
     cmsg = CMSG_FIRSTHDR(&header);
     while (cmsg)
@@ -112,20 +122,14 @@ recieve_ping_reply (int socket_fd)
 
     output.ttl = ttl;
     memcpy(&output.srcAddress, &((struct sockaddr_in*)header.msg_name)->sin_addr, sizeof(struct in_addr));
+    output.srcAddress = *(struct sockaddr *)(&((struct sockaddr_in*)header.msg_name)->sin_addr);
     output.seq_num = be16toh(*(uint16_t*)&buffer[6]);
-    // struct timeval tv_sent;
-    // tv_sent.tv_sec = ntohl(*(uint32_t*)(buffer + 8));
-    // tv_sent.tv_sec = ntohl(*(uint32_t*)(buffer + 8));
-    // struct timeval tv;
-    // gettimeofday(&tv, NULL);
-    // int nsec = (tv.tv_usec - tv_sent.tv_usec) / 1000000 + 1;
-    // tv.tv_usec -= 1000000 * nsec;
-    // tv.tv_sec += nsec;
-    // struct timeval tv_diff;
-    // tv_diff.tv_sec = tv.tv_sec - tv_sent.tv_sec;
-    // tv_diff.tv_usec = tv.tv_usec - tv_sent.tv_usec;
-    // output.time = (float)tv_diff.tv_sec + (float)tv_diff.tv_usec / 100;
+
+    tv_send.tv_sec = *(uint32_t*)(&buffer[8]);
+    tv_send.tv_usec = *(uint32_t*)(&buffer[16]);
+    output.round_trip_time = compute_round_trip_time(&tv_recv, &tv_send);
+
     output.reply_size = reply_size;
 
-    return output;
+    return (output);
 }
