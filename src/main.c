@@ -7,6 +7,7 @@
 #include <locale.h>
 #include <float.h>
 #include <errno.h>
+#include <time.h>
 
 #include <sys/socket.h>
 #include <sys/types.h>
@@ -235,6 +236,14 @@ int main(int argc, char **argv)
         exit(0);
     }
 
+    if (!strcmp(argv[1], "-v"))
+    {
+        char *tmp;
+        tmp = argv[1];
+        argv[1] = argv[2];
+        argv[2] = tmp;
+    }
+
     ping_data.input_type = IS_IP;
     ping_data.addr = getAddrFromIP(argv[1]);
     
@@ -275,7 +284,14 @@ int main(int argc, char **argv)
         exit(-1);
     }
 
-    printf("PING %s (%s): %d data bytes\n", ping_data.fqdn, ping_data.target_ip_str, ICMP_SENT_PACKET_SIZE);
+    printf("PING %s (%s): %d data bytes", ping_data.fqdn, ping_data.target_ip_str, ICMP_SENT_PACKET_SIZE);
+    if(argc >= 3 && !strcmp(argv[2], "-v"))
+    {
+        srand(time(NULL));
+        uint16_t id = rand() % 65535;
+        printf(", id %#x = %d", id, id);
+    }
+    printf("\n");
 
     signal(SIGINT, sigint_handler);
     prev_packet = NULL;
