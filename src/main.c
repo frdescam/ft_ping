@@ -43,12 +43,16 @@ int stop_loop;
 void clean_up(t_ping_data *ping_data)
 {
     t_packets_list *packet;
+    t_packets_list *prev_packet;
 
+    prev_packet = NULL;
     packet = ping_data->packets_list;
     while (packet)
     {
         free(packet->reply_data);
+        prev_packet = packet;
         packet = packet->next;
+        free(prev_packet);
     }
     free(ping_data->addr);
     close(ping_data->socket_fd);
@@ -209,7 +213,7 @@ void sigint_handler()
 
 int main(int argc, char **argv)
 {
-    t_ping_data ping_data;
+    t_ping_data ping_data = {0};
     int enable;
     struct timeval tv_recv_timeout;
     int seq_num;
@@ -284,6 +288,7 @@ int main(int argc, char **argv)
         if (send_ping(ping_data.socket_fd, ping_data.addr, seq_num) != 0)
         {
             fprintf(stderr, "%s: %s: %s", argv[0], argv[1], strerror(errno));
+            free(current_packet);
             clean_up(&ping_data);
             exit(-1);
         }
