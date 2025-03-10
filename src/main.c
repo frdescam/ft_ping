@@ -207,7 +207,7 @@ void sigint_handler()
     stop_loop = 1;
 }
 
-int main(__attribute__((unused)) int argc, char **argv)
+int main(int argc, char **argv)
 {
     t_ping_data ping_data;
     int enable;
