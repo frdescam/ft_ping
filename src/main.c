@@ -55,21 +55,6 @@ void clean_up(t_ping_data *ping_data)
     close(ping_data->socket_fd);
 }
 
-int ft_sqrt(int nb)
-{
-    int i;
-
-    i = 0;
-    if (nb <= 0)
-        return (0);
-    while (i * i < nb && i <= 46340)
-        i++;
-    if (i * i == nb)
-        return (i);
-    else
-        return (0);
-}
-
 double sqrt(double x)
 {
     double j;
