@@ -29,16 +29,13 @@ typedef struct s_icmp_packet
     uint8_t payload[DATA_SIZE];
 } t_icmp_packet;
 
-t_ping_request_data*
+int
 send_ping (int socket_fd, struct sockaddr* addr, int icmp_seq)
 {
     t_icmp_packet icmp_packet;
-    t_ping_request_data* output;
     struct timeval tv_send;
     int i;
 
-    if (!(output = malloc(sizeof(t_ping_request_data))))
-        return (NULL);
     bzero(&icmp_packet, sizeof(icmp_packet));
     icmp_packet.type = 8;
     icmp_packet.seq_num = htobe16(icmp_seq);
@@ -56,9 +53,8 @@ send_ping (int socket_fd, struct sockaddr* addr, int icmp_seq)
     icmp_packet.timestamp_usec = (uint32_t)tv_send.tv_usec;
 
     if(sendto(socket_fd, &icmp_packet, sizeof(icmp_packet), 0, addr, sizeof(struct sockaddr_in)) == -1)
-        return (NULL);
-
-    return (output);
+        return (-1);
+    return (0);
 }
 
 double

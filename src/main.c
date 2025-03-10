@@ -23,7 +23,6 @@
 
 typedef struct s_packets_list
 {
-    t_ping_request_data *request_data;
     t_ping_reply_data *reply_data;
     struct s_packets_list *next;
 } t_packets_list;
@@ -36,6 +35,7 @@ typedef struct s_ping_data
     int input_type;
     struct sockaddr *addr;
     t_packets_list *packets_list;
+    uint32_t nb_requests;
 } t_ping_data;
 
 int stop_loop;
@@ -48,7 +48,6 @@ void clean_up(t_ping_data *ping_data)
     while (packet)
     {
         free(packet->reply_data);
-        free(packet->request_data);
         packet = packet->next;
     }
     free(ping_data->addr);
@@ -113,8 +112,7 @@ void print_ping_stats(t_ping_data *ping_data)
     packets_list = ping_data->packets_list;
     while (packets_list)
     {
-        if (packets_list->request_data)
-            nb_packet_requests++;
+        nb_packet_requests = ping_data->nb_requests;
         if (packets_list->reply_data)
         {
             nb_packet_replies++;
@@ -196,11 +194,10 @@ getAddrFromFQDN(char *fqdn)
     return ((struct sockaddr *)output_addr);
 }
 
-void print_ping_reply_data(t_ping_reply_data *data, int input_type)
+void print_ping_reply_data(t_ping_reply_data *data)
 {
     char src_address_str[INET_ADDRSTRLEN];
 
-    (void)input_type;
     inet_ntop(AF_INET, &data->srcAddress, src_address_str, sizeof(src_address_str));
     printf("%ld bytes from %s: icmp_seq=%d ttl=%d time=%.3f ms\n", data->reply_size, src_address_str, data->seq_num, data->ttl, data->round_trip_time);
 }
@@ -218,10 +215,15 @@ int main(__attribute__((unused)) int argc, char **argv)
     int seq_num;
     t_packets_list *current_packet;
     t_packets_list *prev_packet;
-    t_ping_request_data *ping_request_data;
     t_ping_reply_data *ping_reply_data;
 
     setlocale(LC_ALL, "");
+
+    if (argc == 1)
+    {
+        fprintf(stderr, "%s: %s", argv[0], "missing host operand");
+        exit(-1);
+    }
 
     ping_data.input_type = IS_IP;
     ping_data.addr = getAddrFromIP(argv[1]);
@@ -277,18 +279,20 @@ int main(__attribute__((unused)) int argc, char **argv)
             clean_up(&ping_data);
             exit(-1);
         }
-        if (!(ping_request_data = send_ping(ping_data.socket_fd, ping_data.addr, seq_num)))
+        bzero(current_packet, sizeof(t_packets_list));
+
+        if (send_ping(ping_data.socket_fd, ping_data.addr, seq_num) != 0)
         {
             fprintf(stderr, "%s: %s: %s", argv[0], argv[1], strerror(errno));
             clean_up(&ping_data);
             exit(-1);
         }
-        current_packet->request_data = ping_request_data;
+        ping_data.nb_requests++;
 
         ping_reply_data = recieve_ping_reply(ping_data.socket_fd);
         if (ping_reply_data)
         {
-            print_ping_reply_data(ping_reply_data, ping_data.input_type);
+            print_ping_reply_data(ping_reply_data);
             sleep(1);
         }
 

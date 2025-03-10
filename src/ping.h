@@ -12,12 +12,7 @@ typedef struct s_ping_reply_data
     double round_trip_time;
 }   t_ping_reply_data;
 
-typedef struct s_ping_request_data
-{
-    int data_size;
-}   t_ping_request_data;
-
-t_ping_request_data*
+int
 send_ping (int socket_fd, struct sockaddr* addr, int icmp_seq);
 
 t_ping_reply_data*
