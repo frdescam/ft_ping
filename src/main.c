@@ -229,6 +229,12 @@ int main(int argc, char **argv)
         exit(-1);
     }
 
+    if (!strcmp(argv[1], "-?"))
+    {
+        printf("Usage: %s [-v] HOST", argv[0]);
+        exit(0);
+    }
+
     ping_data.input_type = IS_IP;
     ping_data.addr = getAddrFromIP(argv[1]);
     
