@@ -1,7 +1,5 @@
 #include <stdlib.h>
-#include <stdio.h>
 #include <string.h>
-#include <errno.h>
 #include <sys/time.h>
 
 #include <netinet/in.h>
@@ -39,7 +37,8 @@ send_ping (int socket_fd, struct sockaddr* addr, int icmp_seq)
     struct timeval tv_send;
     int i;
 
-    output = malloc(sizeof(t_ping_request_data));
+    if (!(output = malloc(sizeof(t_ping_request_data))))
+        return (NULL);
     bzero(&icmp_packet, sizeof(icmp_packet));
     icmp_packet.type = 8;
     icmp_packet.seq_num = htobe16(icmp_seq);
@@ -57,9 +56,7 @@ send_ping (int socket_fd, struct sockaddr* addr, int icmp_seq)
     icmp_packet.timestamp_usec = (uint32_t)tv_send.tv_usec;
 
     if(sendto(socket_fd, &icmp_packet, sizeof(icmp_packet), 0, addr, sizeof(struct sockaddr_in)) == -1)
-    {
-        printf("error send %d: %s\n", errno, strerror(errno));
-    }
+        return (NULL);
 
     return (output);
 }
@@ -123,7 +120,8 @@ recieve_ping_reply (int socket_fd)
         cmsg = CMSG_NXTHDR(&header, cmsg);
     }
 
-    output = malloc(sizeof(t_ping_reply_data));
+    if (!(output = malloc(sizeof(t_ping_reply_data))))
+        return (NULL);
     output->ttl = ttl;
     memcpy(&output->srcAddress, &((struct sockaddr_in*)header.msg_name)->sin_addr, sizeof(struct in_addr));
     output->srcAddress = *(struct sockaddr *)(&((struct sockaddr_in*)header.msg_name)->sin_addr);

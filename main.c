@@ -6,6 +6,7 @@
 #include <signal.h>
 #include <locale.h>
 #include <float.h>
+#include <errno.h>
 
 #include <sys/socket.h>
 #include <sys/types.h>
@@ -176,7 +177,8 @@ getAddrFromIP(char *ip)
 {
     struct sockaddr_in *addr;
 
-    addr = malloc(sizeof(struct sockaddr_in));
+    if(!(addr = malloc(sizeof(struct sockaddr_in))))
+        return (NULL);
     bzero(addr, sizeof(struct sockaddr_in));
     addr->sin_family = AF_INET;
     addr->sin_port = 0;
@@ -201,7 +203,8 @@ getAddrFromFQDN(char *fqdn)
     if ((status = getaddrinfo(fqdn, NULL, &hints, &addr_list)) != 0)
         return (NULL);
 
-    output_addr = malloc(sizeof(struct sockaddr_in));
+    if(!(output_addr = malloc(sizeof(struct sockaddr_in))))
+        return (NULL);
     memcpy(output_addr, addr_list->ai_addr, addr_list->ai_addrlen);
     freeaddrinfo(addr_list);
 
@@ -239,30 +242,47 @@ int main(int argc, char **argv)
     setlocale(LC_ALL, "");
 
     ping_data.input_type = IS_IP;
-    ping_data.addr = getAddrFromIP(argv[1]);
+    if (!(ping_data.addr = getAddrFromIP(argv[1])))
+    {
+        clean_up(&ping_data);
+        exit(-1);
+    }
 
     if (!ping_data.addr)
     {
         ping_data.input_type = IS_FQDN;
-        ping_data.addr = getAddrFromFQDN(argv[1]);
-        if (!ping_data.addr)
-            return (-1);
+        if (!(ping_data.addr = getAddrFromFQDN(argv[1])))
+        {
+            clean_up(&ping_data);
+            exit(-1);
+        }
     }
     inet_ntop(AF_INET, &((struct sockaddr_in *)ping_data.addr)->sin_addr, ping_data.target_ip_str, sizeof(ping_data.target_ip_str));
     ping_data.fqdn = argv[1];
 
     if ((ping_data.socket_fd = socket(AF_INET, SOCK_DGRAM, IPPROTO_ICMP)) == -1)
     {
-        printf("error socket\n");
-        exit(1);
+        fprintf(stderr, "Error socket\n");
+        clean_up(&ping_data);
+        exit(-1);
     }
 
     enable = 1;
-    setsockopt(ping_data.socket_fd, IPPROTO_IP, IP_RECVTTL, &enable, sizeof(enable));
+    if (setsockopt(ping_data.socket_fd, IPPROTO_IP, IP_RECVTTL, &enable, sizeof(enable)) != 0)
+    {
+        fprintf(stderr, "Error socket opt");
+        clean_up(&ping_data);
+        exit(-1);
+    }
 
     tv_recv_timeout.tv_sec = 1;
     tv_recv_timeout.tv_usec = 0;
-    setsockopt(ping_data.socket_fd, SOL_SOCKET, SO_RCVTIMEO, &tv_recv_timeout, sizeof(tv_recv_timeout));
+    if(setsockopt(ping_data.socket_fd, SOL_SOCKET, SO_RCVTIMEO, &tv_recv_timeout, sizeof(tv_recv_timeout)) != 0)
+    {
+        fprintf(stderr, "Error socket opt");
+        clean_up(&ping_data);
+        exit(-1);
+    }
 
     printf("PING %s (%s): %d data bytes\n", ping_data.fqdn, ping_data.target_ip_str, ICMP_SENT_PACKET_SIZE);
 
@@ -273,8 +293,17 @@ int main(int argc, char **argv)
     seq_num = 0;
     while (!stop_loop)
     {
-        current_packet = malloc(sizeof(t_packets_list));
-        ping_request_data = send_ping(ping_data.socket_fd, ping_data.addr, seq_num);
+        if(!(current_packet = malloc(sizeof(t_packets_list))))
+        {
+            clean_up(&ping_data);
+            exit(-1);
+        }
+        if (!(ping_request_data = send_ping(ping_data.socket_fd, ping_data.addr, seq_num)))
+        {
+            fprintf(stderr, "Error send");
+            clean_up(&ping_data);
+            exit(-1);
+        }
         current_packet->request_data = ping_request_data;
 
         ping_reply_data = recieve_ping_reply(ping_data.socket_fd);
