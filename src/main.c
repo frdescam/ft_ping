@@ -225,7 +225,7 @@ void sigint_handler()
     stop_loop = 1;
 }
 
-int main(int argc, char **argv)
+int main(__attribute__((unused)) int argc, char **argv)
 {
     t_ping_data ping_data;
     int enable;
@@ -236,23 +236,17 @@ int main(int argc, char **argv)
     t_ping_request_data *ping_request_data;
     t_ping_reply_data *ping_reply_data;
 
-    if (argc != 2)
-        return (-1);
-
     setlocale(LC_ALL, "");
 
     ping_data.input_type = IS_IP;
-    if (!(ping_data.addr = getAddrFromIP(argv[1])))
-    {
-        clean_up(&ping_data);
-        exit(-1);
-    }
-
+    ping_data.addr = getAddrFromIP(argv[1]);
+    
     if (!ping_data.addr)
     {
         ping_data.input_type = IS_FQDN;
         if (!(ping_data.addr = getAddrFromFQDN(argv[1])))
         {
+            fprintf(stderr, "%s: %s: %s", argv[0], argv[1], "unknown host");
             clean_up(&ping_data);
             exit(-1);
         }
@@ -262,7 +256,7 @@ int main(int argc, char **argv)
 
     if ((ping_data.socket_fd = socket(AF_INET, SOCK_DGRAM, IPPROTO_ICMP)) == -1)
     {
-        fprintf(stderr, "Error socket\n");
+        fprintf(stderr, "%s: %s: %s", argv[0], argv[1], strerror(errno));
         clean_up(&ping_data);
         exit(-1);
     }
@@ -270,7 +264,7 @@ int main(int argc, char **argv)
     enable = 1;
     if (setsockopt(ping_data.socket_fd, IPPROTO_IP, IP_RECVTTL, &enable, sizeof(enable)) != 0)
     {
-        fprintf(stderr, "Error socket opt");
+        fprintf(stderr, "%s: %s: %s", argv[0], argv[1], strerror(errno));
         clean_up(&ping_data);
         exit(-1);
     }
@@ -279,7 +273,7 @@ int main(int argc, char **argv)
     tv_recv_timeout.tv_usec = 0;
     if(setsockopt(ping_data.socket_fd, SOL_SOCKET, SO_RCVTIMEO, &tv_recv_timeout, sizeof(tv_recv_timeout)) != 0)
     {
-        fprintf(stderr, "Error socket opt");
+        fprintf(stderr, "%s: %s: %s", argv[0], argv[1], strerror(errno));
         clean_up(&ping_data);
         exit(-1);
     }
@@ -300,7 +294,7 @@ int main(int argc, char **argv)
         }
         if (!(ping_request_data = send_ping(ping_data.socket_fd, ping_data.addr, seq_num)))
         {
-            fprintf(stderr, "Error send");
+            fprintf(stderr, "%s: %s: %s", argv[0], argv[1], strerror(errno));
             clean_up(&ping_data);
             exit(-1);
         }

@@ -5,7 +5,7 @@ SHELL		= /bin/sh
 
 NAME		= ft_ping
 
-SRCS		= ./main.c ./ping.c
+SRCS		= ./src/main.c ./src/ping.c
 
 OBJS		= ${SRCS:.c=.o}
 
