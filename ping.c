@@ -22,7 +22,7 @@ typedef struct s_icmp_packet
     uint16_t identifier;
     uint16_t seq_num;
     // Payload 56 bytes
-    //  Timestamp 8 bytes + 8 bytes padding ?
+    //  Timestamp 8 bytes + 8 bytes padding
     uint32_t timestamp_sec;
     uint32_t padding1;
     uint32_t timestamp_usec;
@@ -31,14 +31,15 @@ typedef struct s_icmp_packet
     uint8_t payload[DATA_SIZE];
 } t_icmp_packet;
 
-t_ping_request_data
+t_ping_request_data*
 send_ping (int socket_fd, struct sockaddr* addr, int icmp_seq)
 {
     t_icmp_packet icmp_packet;
-    t_ping_request_data output = {0};
+    t_ping_request_data* output;
     struct timeval tv_send;
     int i;
 
+    output = malloc(sizeof(t_ping_request_data));
     bzero(&icmp_packet, sizeof(icmp_packet));
     icmp_packet.type = 8;
     icmp_packet.seq_num = htobe16(icmp_seq);
@@ -76,10 +77,10 @@ compute_round_trip_time (struct timeval* tv_send, struct timeval* tv_recv)
     return (output);
 }
 
-t_ping_reply_data
+t_ping_reply_data*
 recieve_ping_reply (int socket_fd)
 {
-    t_ping_reply_data output;
+    t_ping_reply_data* output;
 
     struct msghdr header;
     uint8_t buffer[PACKET_SIZE];
@@ -107,6 +108,8 @@ recieve_ping_reply (int socket_fd)
     header.msg_controllen = sizeof(ctrlDataBuffer);
 
     reply_size = recvmsg(socket_fd, &header, 0);
+    if (reply_size == -1)
+        return NULL;
     gettimeofday(&tv_recv, NULL);
     ttl = -1;
     cmsg = CMSG_FIRSTHDR(&header);
@@ -120,16 +123,17 @@ recieve_ping_reply (int socket_fd)
         cmsg = CMSG_NXTHDR(&header, cmsg);
     }
 
-    output.ttl = ttl;
-    memcpy(&output.srcAddress, &((struct sockaddr_in*)header.msg_name)->sin_addr, sizeof(struct in_addr));
-    output.srcAddress = *(struct sockaddr *)(&((struct sockaddr_in*)header.msg_name)->sin_addr);
-    output.seq_num = be16toh(*(uint16_t*)&buffer[6]);
+    output = malloc(sizeof(t_ping_reply_data));
+    output->ttl = ttl;
+    memcpy(&output->srcAddress, &((struct sockaddr_in*)header.msg_name)->sin_addr, sizeof(struct in_addr));
+    output->srcAddress = *(struct sockaddr *)(&((struct sockaddr_in*)header.msg_name)->sin_addr);
+    output->seq_num = be16toh(*(uint16_t*)&buffer[6]);
 
     tv_send.tv_sec = *(uint32_t*)(&buffer[8]);
     tv_send.tv_usec = *(uint32_t*)(&buffer[16]);
-    output.round_trip_time = compute_round_trip_time(&tv_recv, &tv_send);
+    output->round_trip_time = compute_round_trip_time(&tv_recv, &tv_send);
 
-    output.reply_size = reply_size;
+    output->reply_size = reply_size;
 
     return (output);
 }
