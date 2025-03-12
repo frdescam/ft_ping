@@ -226,13 +226,13 @@ int main(int argc, char **argv)
 
     if (argc == 1)
     {
-        fprintf(stderr, "%s: %s", argv[0], "missing host operand");
+        fprintf(stderr, "%s: %s\n", argv[0], "missing host operand");
         exit(-1);
     }
 
     if (!strcmp(argv[1], "-?"))
     {
-        printf("Usage: %s [-v] HOST", argv[0]);
+        printf("Usage: %s [-v] HOST\n", argv[0]);
         exit(0);
     }
 
@@ -252,7 +252,7 @@ int main(int argc, char **argv)
         ping_data.input_type = IS_FQDN;
         if (!(ping_data.addr = getAddrFromFQDN(argv[1])))
         {
-            fprintf(stderr, "%s: %s: %s", argv[0], argv[1], "unknown host");
+            fprintf(stderr, "%s: %s: %s\n", argv[0], argv[1], "unknown host");
             clean_up(&ping_data);
             exit(-1);
         }
@@ -262,7 +262,7 @@ int main(int argc, char **argv)
 
     if ((ping_data.socket_fd = socket(AF_INET, SOCK_DGRAM, IPPROTO_ICMP)) == -1)
     {
-        fprintf(stderr, "%s: %s: %s", argv[0], argv[1], strerror(errno));
+        fprintf(stderr, "%s: %s: %s\n", argv[0], argv[1], strerror(errno));
         clean_up(&ping_data);
         exit(-1);
     }
@@ -270,7 +270,7 @@ int main(int argc, char **argv)
     enable = 1;
     if (setsockopt(ping_data.socket_fd, IPPROTO_IP, IP_RECVTTL, &enable, sizeof(enable)) != 0)
     {
-        fprintf(stderr, "%s: %s: %s", argv[0], argv[1], strerror(errno));
+        fprintf(stderr, "%s: %s: %s\n", argv[0], argv[1], strerror(errno));
         clean_up(&ping_data);
         exit(-1);
     }
@@ -279,7 +279,7 @@ int main(int argc, char **argv)
     tv_recv_timeout.tv_usec = 0;
     if(setsockopt(ping_data.socket_fd, SOL_SOCKET, SO_RCVTIMEO, &tv_recv_timeout, sizeof(tv_recv_timeout)) != 0)
     {
-        fprintf(stderr, "%s: %s: %s", argv[0], argv[1], strerror(errno));
+        fprintf(stderr, "%s: %s: %s\n", argv[0], argv[1], strerror(errno));
         clean_up(&ping_data);
         exit(-1);
     }
@@ -309,7 +309,7 @@ int main(int argc, char **argv)
 
         if (send_ping(ping_data.socket_fd, ping_data.addr, seq_num) != 0)
         {
-            fprintf(stderr, "%s: %s: %s", argv[0], argv[1], strerror(errno));
+            fprintf(stderr, "%s: %s: %s\n", argv[0], argv[1], strerror(errno));
             free(current_packet);
             clean_up(&ping_data);
             exit(-1);
